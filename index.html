@@ -3,10 +3,11 @@
 #planetLabels{position:fixed;inset:0;pointer-events:none;z-index:3;overflow:hidden}
 .planetName{position:absolute;transform:translate(-50%,-100%);white-space:nowrap;border:1px solid rgba(165,217,255,.45);border-radius:999px;padding:6px 12px;background:rgba(5,12,28,.74);color:#f0f6ff;font:600 12px/1.2 system-ui,-apple-system,sans-serif;letter-spacing:.025em;text-shadow:0 1px 6px #000;box-shadow:0 2px 12px #0008;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 @media(max-width:650px){.planetName{font-size:10px;padding:5px 8px;max-width:120px;overflow:hidden;text-overflow:ellipsis}}
-</style></head><body><div id="scene"></div><div id="planetLabels" aria-label="Planet names"></div><div id="ui"><header class="top"><div class="brand glass"><b>MYLIFE</b><small>THE LIVING COSMOS · 1.4</small></div><div class="actions"><button id="mode">▦ Atlas (Tab)</button><button id="ship">◇ Ship: Off (V)</button><button id="home">⌂ Home (H)</button><button id="quality">✧ Quality: Auto</button><button id="full">⛶ Fullscreen</button></div></header><div class="hud glass" id="hud"><strong>Free Flight</strong><div>W / S · forward / back</div><div>A / D · strafe left / right</div><div>Q / E · descend / ascend</div><div>Drag · look around</div><div>Shift · boost · Scroll · adjust speed</div><div>Tap a planet to explore · Drag space to look</div><div id="status">Flight speed: 1.0×</div></div><span class="joyLabel left">MOVE</span><div id="joystick" class="joystick" aria-label="Move joystick"><div id="stick" class="stick"></div></div><span class="joyLabel right">LOOK / PAN</span><div id="lookJoystick" class="joystick lookJoystick" aria-label="Look and pan joystick"><div id="lookStick" class="stick"></div></div><div class="hint glass" id="hint">Fly through space · Atlas is one tap away</div><div id="message" class="glass"></div><section id="panel" class="panel glass"><button class="close" id="close">✕</button><div id="panelContent"></div></section><main id="atlas" class="atlas"><h1>Atlas <span style="color:#9fe9ee">Mode</span></h1><p>Your universe, instantly accessible. Search and select any destination.</p><input id="search" placeholder="Search your universe…" aria-label="Search tiles"><div class="tiles" id="tiles"></div></main></div><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
+</style></head><body><div id="scene"></div><div id="planetLabels" aria-label="Planet names"></div><div id="ui"><header class="top"><div class="brand glass"><b>MYLIFE</b><small>THE LIVING COSMOS · 2.0</small></div><div class="actions"><button id="mode">▦ Atlas (Tab)</button><button id="ship">◇ Ship: Off (V)</button><button id="home">⌂ Home (H)</button><button id="quality">✧ Quality: Auto</button><button id="full">⛶ Fullscreen</button></div></header><div class="hud glass" id="hud"><strong>Free Flight</strong><div>W / S · forward / back</div><div>A / D · strafe left / right</div><div>Q / E · descend / ascend</div><div>Drag · look around</div><div>Shift · boost · Scroll · adjust speed</div><div>Tap a planet to explore · Drag space to look</div><div id="status">Flight speed: 1.0×</div></div><span class="joyLabel left">MOVE</span><div id="joystick" class="joystick" aria-label="Move joystick"><div id="stick" class="stick"></div></div><span class="joyLabel right">LOOK / PAN</span><div id="lookJoystick" class="joystick lookJoystick" aria-label="Look and pan joystick"><div id="lookStick" class="stick"></div></div><div class="hint glass" id="hint">Fly through space · Atlas is one tap away</div><div id="message" class="glass"></div><section id="panel" class="panel glass"><button class="close" id="close">✕</button><div id="panelContent"></div></section><main id="atlas" class="atlas"><h1>Atlas <span style="color:#9fe9ee">Mode</span></h1><p>Your universe, instantly accessible. Search and select any destination.</p><input id="search" placeholder="Search your universe…" aria-label="Search tiles"><div class="tiles" id="tiles"></div></main></div><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 const entries=[{name:'MYLIFE Writer',icon:'✎',desc:'Documents, notes and writing',color:'#a78bfa',detail:'A local prototype writing space. In a later release, Word files can be opened from folders you authorise.'},{name:'Fitness Diary',icon:'◉',desc:'Training, cycling and progress',color:'#56cde8',detail:'Record your training sessions in the first prototype. Entries are saved in this browser on this device.'},{name:'Creative Library',icon:'✦',desc:'Artwork, photography and projects',color:'#ee9ac7',detail:'Your future gallery of paintings, photographs and creative work.'},{name:'Journal',icon:'☾',desc:'Mood and daily reflections',color:'#e7bb8b',detail:'Record how you are feeling and keep private daily reflections.'},{name:'News Observatory',icon:'◈',desc:'Personalised news',color:'#78d5b3',detail:'A future home for your selected news sources and topics.'},{name:'Media & Connections',icon:'▶',desc:'YouTube, Google and communications',color:'#f17d8f',detail:'Quick links to services you use, with optional integrations later.'}];
 // Mobile-aware rendering quality: avoid driving the 5K panel at full native resolution on phones.
 const isMobile=/iPhone|iPad|Android/i.test(navigator.userAgent);
@@ -321,16 +322,17 @@ function createShuttleFallback(){
  g.visible=false;shipGroup.add(g);return g;
 }
 fallbackShuttle=createShuttleFallback();
+let roadsterShip=null;let roadsterAstronaut=null;
 function chooseShip(mode){
- activeShipMode=mode==='nasa'?'nasa':'noir';
- const showShuttle=activeShipMode==='nasa';
+ activeShipMode=['nasa','noir','roadster'].includes(mode)?mode:'noir';
+ const showShuttle=activeShipMode==='nasa';const showRoadster=activeShipMode==='roadster'&&!!roadsterShip;
  if(nasaShip)nasaShip.visible=showShuttle;
  if(fallbackShuttle)fallbackShuttle.visible=showShuttle&&!nasaShip;
- if(noirShip)noirShip.visible=!showShuttle;
+ if(noirShip)noirShip.visible=!showShuttle&&!showRoadster;if(roadsterShip)roadsterShip.visible=showRoadster;
  // Original primitive model is visible only if the embedded GLB cannot parse.
- for(const part of originalShipParts)part.visible=!showShuttle&&!noirShip;
+ for(const part of originalShipParts)part.visible=!showShuttle&&!showRoadster&&!noirShip;
  const select=document.getElementById('shipChoice');if(select)select.value=activeShipMode;
- showShipStatus(showShuttle?(nasaShip?'NASA 3D spacecraft active':'Shuttle fallback active · NASA model not loaded'):(noirShip?'Noir Interceptor active':'Noir Interceptor loading…'));
+ showShipStatus(showRoadster?'Imported white roadster active':activeShipMode==='roadster'?'Select a real GLB roadster model below':showShuttle?(nasaShip?'NASA 3D spacecraft active':'Shuttle fallback active · NASA model not loaded'):(noirShip?'Noir Interceptor active':'Noir Interceptor loading…'));
 }
 // The embedded GLB is loaded in the same JavaScript task; its parse callback runs shortly afterwards.
 new GLTFLoader().load(nasaAssetURL,gltf=>{
@@ -410,6 +412,109 @@ document.getElementById('spaceBrightness').addEventListener('input',e=>{
  // Keep the sky dark even when the user brightens the planets and ship.
  skyDome.material.color.setRGB(.43*value/.88,.46*value/.88,.51*value/.88);
 });
+
+// Real mesh import: intentionally no cartoon placeholder. A GLB is loaded from a user-selected file.
+const carFileInput=document.getElementById('roadsterFile');
+const astronautFileInput=document.getElementById('astronautFile');
+const importStatus=document.getElementById('roadsterImportStatus');
+async function importGlb(file){
+ if(!file)return null;
+ if(!/\.glb$/i.test(file.name))throw Error('Please choose a .glb model.');
+ if(file.size>150*1024*1024)throw Error('This model is too large for mobile (150 MB limit).');
+ const buffer=await file.arrayBuffer();
+ return await new Promise((resolve,reject)=>new GLTFLoader().parse(buffer,'',gltf=>resolve(gltf.scene),reject));
+}
+function normalizeRoadster(obj){
+ obj.updateMatrixWorld(true);
+ let bounds=new THREE.Box3().setFromObject(obj),dims=new THREE.Vector3();bounds.getSize(dims);
+ if(!Number.isFinite(dims.length())||dims.length()<.001)throw Error('Model contains no visible geometry.');
+ const max=Math.max(dims.x,dims.y,dims.z);
+ obj.scale.multiplyScalar(36/max);obj.updateMatrixWorld(true);
+ bounds.setFromObject(obj);const center=new THREE.Vector3();bounds.getCenter(center);
+ obj.position.sub(center);
+ obj.traverse(m=>{if(m.isMesh){m.castShadow=true;m.receiveShadow=true;}});
+ upgradeShipMaterials(obj);
+ return obj;
+}
+carFileInput.addEventListener('change',async e=>{
+ try{
+  importStatus.textContent='Loading actual 3D car…';
+  const obj=normalizeRoadster(await importGlb(e.target.files[0]));
+  if(roadsterShip)shipGroup.remove(roadsterShip);
+  roadsterShip=obj;shipGroup.add(roadsterShip);
+  chooseShip('roadster');
+  importStatus.textContent='Loaded '+e.target.files[0].name+' · Use roadster selection to fly';
+ }catch(err){importStatus.textContent='Car import failed: '+err.message;console.error(err);}
+});
+astronautFileInput.addEventListener('change',async e=>{
+ try{
+  if(!roadsterShip)throw Error('Load the car first.');
+  importStatus.textContent='Loading astronaut…';
+  const obj=await importGlb(e.target.files[0]);
+  obj.updateMatrixWorld(true);const b=new THREE.Box3().setFromObject(obj),d=new THREE.Vector3();b.getSize(d);
+  obj.scale.multiplyScalar(9/Math.max(d.x,d.y,d.z,.001));
+  obj.updateMatrixWorld(true);b.setFromObject(obj);const c=new THREE.Vector3();b.getCenter(c);obj.position.sub(c);
+  // Default placement; models differ in coordinate system. User can adjust in Blender if needed.
+  obj.position.add(new THREE.Vector3(-5,3,-1));
+  if(roadsterAstronaut)roadsterShip.remove(roadsterAstronaut);
+  roadsterAstronaut=obj;roadsterShip.add(obj);
+  upgradeShipMaterials(obj);
+  importStatus.textContent='Astronaut loaded. Position is approximate; a rigged seated pose is needed for steering animation.';
+ }catch(err){importStatus.textContent='Astronaut import failed: '+err.message;console.error(err);}
+});
+
+
+// Bundled artist-authored assets: no per-session file picking required.
+// Heavy car is fetched once and the astronaut is loaded as an FBX with its supplied PBR maps.
+const bundledLoader=new GLTFLoader();
+bundledLoader.load('./assets/Chevrolet%20Corvette%20C1.glb',gltf=>{
+ try {
+   roadsterShip=normalizeRoadster(gltf.scene);
+   shipGroup.add(roadsterShip);
+   chooseShip('roadster');
+   importStatus.textContent='White Corvette C1 loaded · astronaut loading…';
+   loadBundledAstronaut();
+ }catch(err){importStatus.textContent='Corvette setup error: '+err.message;console.error(err);}
+},undefined,err=>{
+ importStatus.textContent='Corvette could not load. Check the assets folder is uploaded.';
+ console.error(err);
+});
+function loadBundledAstronaut(){
+ const textureLoader=new THREE.TextureLoader();
+ const base=textureLoader.load('./assets/AStro_outfit_BaseColor.jpeg');
+ base.colorSpace=THREE.SRGBColorSpace;
+ const rough=textureLoader.load('./assets/AStro_outfit_Roughness.jpeg');
+ const metal=textureLoader.load('./assets/AStro_outfit_Metallic.jpeg');
+ const normal=textureLoader.load('./assets/AStro_outfit_Normal.jpeg');
+ new FBXLoader().load('./assets/astro.fbx',obj=>{
+  try{
+   obj.updateMatrixWorld(true);
+   const b=new THREE.Box3().setFromObject(obj),d=new THREE.Vector3();
+   b.getSize(d);
+   const max=Math.max(d.x,d.y,d.z,.001);
+   obj.scale.multiplyScalar(8/max);
+   obj.updateMatrixWorld(true);
+   const center=new THREE.Vector3();
+   new THREE.Box3().setFromObject(obj).getCenter(center);
+   obj.position.sub(center);
+   // Approximate left-hand driver's location until seat/steering geometry is calibrated.
+   obj.position.add(new THREE.Vector3(-5,3,-1));
+   obj.traverse(m=>{
+    if(!m.isMesh)return;
+    m.material=new THREE.MeshStandardMaterial({
+     map:base,roughnessMap:rough,metalnessMap:metal,normalMap:normal,
+     metalness:.48,roughness:.72,side:THREE.DoubleSide
+    });
+    m.castShadow=true;m.receiveShadow=true;
+   });
+   roadsterAstronaut=obj;
+   roadsterShip.add(obj);
+   upgradeShipMaterials(obj);
+   importStatus.textContent='White Corvette + textured astronaut loaded · position approximate';
+  }catch(err){console.error(err);importStatus.textContent='Car loaded; astronaut setup failed: '+err.message;}
+ },undefined,err=>{console.error(err);importStatus.textContent='Car loaded; astronaut FBX failed to load.';});
+}
+
 document.getElementById('shipChoice').addEventListener('change',e=>chooseShip(e.target.value));
 
 function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDelta(),.05),t=clock.elapsedTime;for(let i=0;i<bodies.length;i++){const b=bodies[i],a=b.angle+t*(.035+i*.004);b.group.position.set(Math.cos(a)*b.orbit,Math.sin(a*.8)*36,Math.sin(a)*b.orbit);b.mesh.rotation.y+=dt*.14;b.cloudSphere.rotation.y+=dt*.09;b.moon.rotation.y+=dt*.25}center.rotation.y+=dt*.06;sunMaterial.uniforms.uTime.value=t;glow.material.rotation+=dt*.02;corona.material.opacity=.34+.045*Math.sin(t*1.8);nebulae.forEach((n,i)=>{n.material.rotation+=dt*(i%2?-.001:.001)});if(!atlas){yaw-=lookX*dt*.52;pitch=Math.max(-1.45,Math.min(1.45,pitch+lookY*dt*.48));camera.rotation.order='YXZ';camera.rotation.y=yaw;camera.rotation.x=pitch;camera.getWorldDirection(direction);right.setFromMatrixColumn(camera.matrixWorld,0);const f=(keys.has('KeyW')?1:0)-(keys.has('KeyS')?1:0)+joyY;const s=(keys.has('KeyD')?1:0)-(keys.has('KeyA')?1:0)+joyX;const v=(keys.has('KeyE')?1:0)-(keys.has('KeyQ')?1:0)+vertical;const mult=(keys.has('ShiftLeft')||keys.has('ShiftRight')?3:1)*speed*dt*115;camera.position.addScaledVector(direction,f*mult).addScaledVector(right,s*mult).addScaledVector(up,v*mult);// Camera-relative chase framing; no right-hand clipping, no feedback into movement.
@@ -433,12 +538,12 @@ dust.position.copy(camera.position).multiplyScalar(.92)}// Project the planet's 
    if(visible){b.label.style.left=((labelVector.x+1)*50)+'%';b.label.style.top=((1-labelVector.y)*50)+'%'}
  }
  renderer.render(scene,camera)}animate();addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(effectivePixelRatio())});
-</script><div id="textureCredit" style="position:fixed;bottom:3px;left:50%;transform:translateX(-50%);z-index:2;color:#b4bbcf;font:9px system-ui;opacity:.65;pointer-events:none;text-align:center">Planet imagery: Solar System Scope · CC BY 4.0 · based on NASA data</div><div id="photoStatus" style="position:fixed;top:9px;left:50%;transform:translateX(-50%);z-index:15;padding:5px 12px;border:1px solid #7bbad177;border-radius:18px;background:#081525e8;color:#e5f7ff;font:11px system-ui;pointer-events:none">Planet imagery: 0 / 6 loaded</div><div id="modelStatus" style="position:fixed;bottom:9px;right:10px;z-index:12;color:#d4e7f0;background:#05101cc7;border-radius:12px;padding:5px 9px;font:10px system-ui;pointer-events:none">Loading 3D spacecraft…</div><div id="versionIndicator" style="position:fixed;top:7px;right:10px;z-index:50;color:#b4d4dc;background:#04111ccf;border:1px solid #2b5364;border-radius:12px;padding:5px 9px;font:10px system-ui;pointer-events:none">MYLIFE 1.9 · CINEMATIC MATERIALS</div><div id="ambiencePanel" style="position:fixed;bottom:86px;right:12px;z-index:90;background:#020914d9;border:1px solid #35485a;border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:7px;max-width:170px;box-shadow:0 4px 30px #0007;color:#dce6ef;font:11px system-ui">
+</script><div id="textureCredit" style="position:fixed;bottom:3px;left:50%;transform:translateX(-50%);z-index:2;color:#b4bbcf;font:9px system-ui;opacity:.65;pointer-events:none;text-align:center">Planet imagery: Solar System Scope · CC BY 4.0 · based on NASA data</div><div id="photoStatus" style="position:fixed;top:9px;left:50%;transform:translateX(-50%);z-index:15;padding:5px 12px;border:1px solid #7bbad177;border-radius:18px;background:#081525e8;color:#e5f7ff;font:11px system-ui;pointer-events:none">Planet imagery: 0 / 6 loaded</div><div id="modelStatus" style="position:fixed;bottom:9px;right:10px;z-index:12;color:#d4e7f0;background:#05101cc7;border-radius:12px;padding:5px 9px;font:10px system-ui;pointer-events:none">Loading 3D spacecraft…</div><div id="versionIndicator" style="position:fixed;top:7px;right:10px;z-index:50;color:#b4d4dc;background:#04111ccf;border:1px solid #2b5364;border-radius:12px;padding:5px 9px;font:10px system-ui;pointer-events:none">MYLIFE 2.1 · CORVETTE + ASTRONAUT</div><div id="ambiencePanel" style="position:fixed;bottom:86px;right:12px;z-index:90;background:#020914d9;border:1px solid #35485a;border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:7px;max-width:170px;box-shadow:0 4px 30px #0007;color:#dce6ef;font:11px system-ui">
  <label for="shipChoice" style="opacity:.8">3D spacecraft</label>
- <select id="shipChoice" style="background:#122132;color:#eaf5ff;border:1px solid #496075;border-radius:7px;padding:5px;font:11px system-ui"><option value="nasa">Shuttle (NASA mesh if available)</option><option value="noir">Noir Interceptor</option></select>
+ <select id="shipChoice" style="background:#122132;color:#eaf5ff;border:1px solid #496075;border-radius:7px;padding:5px;font:11px system-ui"><option value="nasa">Shuttle (NASA mesh if available)</option><option value="noir">Noir Interceptor</option><option value="roadster">White Space Roadster (upload model)</option></select><div style="display:flex;flex-direction:column;gap:5px;margin-top:8px"><label style="font:11px system-ui">Import photorealistic convertible (.glb)</label><input type="file" id="roadsterFile" accept=".glb,model/gltf-binary" style="max-width:220px;font:10px system-ui"/><label style="font:11px system-ui">Import astronaut (.glb, optional)</label><input type="file" id="astronautFile" accept=".glb,model/gltf-binary" style="max-width:220px;font:10px system-ui"/><small id="roadsterImportStatus" style="color:#b6cbd9;max-width:230px">No convertible model imported yet.</small></div>
  <button id="ambienceToggle" style="background:#1a3041;color:#eaf5ff;border:1px solid #536a7b;border-radius:8px;padding:7px;cursor:pointer">♫ Enable ambience</button>
  <label for="ambienceVolume" style="opacity:.8">Ambient volume</label>
  <input id="ambienceVolume" type="range" min="0" max="100" value="16" style="width:100%;accent-color:#8ea6c4" />
  <label for="spaceBrightness" style="opacity:.8">Space brightness</label>
  <input id="spaceBrightness" type="range" min="55" max="120" value="88" style="width:100%;accent-color:#8ea6c4" />
-</div><div style="position:fixed;top:37px;right:10px;z-index:9999;pointer-events:none;background:#000a;color:#b9d1de;border:1px solid #405568;border-radius:8px;padding:5px 8px;font:10px system-ui">MYLIFE 1.9 · CINEMATIC MATERIALS</div></body></html>
+</div><div style="position:fixed;top:37px;right:10px;z-index:9999;pointer-events:none;background:#000a;color:#b9d1de;border:1px solid #405568;border-radius:8px;padding:5px 8px;font:10px system-ui">MYLIFE 2.1 · CORVETTE + ASTRONAUT</div></body></html>
