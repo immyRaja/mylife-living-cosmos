@@ -14,7 +14,54 @@ let quality='auto';
 const qualityBtn=document.getElementById('quality');
 function effectivePixelRatio(){return Math.min(devicePixelRatio,quality==='high'?2:quality==='low'?1:isMobile?1.35:1.8)}
 qualityBtn.onclick=()=>{quality=quality==='auto'?'low':quality==='low'?'high':'auto';qualityBtn.textContent='✧ Quality: '+quality[0].toUpperCase()+quality.slice(1);renderer.setPixelRatio(effectivePixelRatio())};
-const scene=new THREE.Scene();scene.background=new THREE.Color('#000105');scene.fog=new THREE.FogExp2('#010207',0.00045);const camera=new THREE.PerspectiveCamera(72,innerWidth/innerHeight,.1,20000);camera.position.set(0,70,680);const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});renderer.setPixelRatio(effectivePixelRatio());renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.88;document.getElementById('scene').appendChild(renderer.domElement);scene.add(new THREE.HemisphereLight(0x61748a,0x070b13,.82));const sun=new THREE.PointLight(0xffd5ad,190000,2000,1.35);sun.position.set(0,0,0);scene.add(sun);// Animated solar plasma: actual luminous star, not a purple planet.
+const scene=new THREE.Scene();scene.background=new THREE.Color('#000105');scene.fog=new THREE.FogExp2('#010207',0.00045);const camera=new THREE.PerspectiveCamera(72,innerWidth/innerHeight,.1,20000);camera.position.set(0,70,680);const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});renderer.setPixelRatio(effectivePixelRatio());renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.88;document.getElementById('scene').appendChild(renderer.domElement);scene.add(new THREE.HemisphereLight(0x61748a,0x070b13,.82));
+// Film-inspired reflection environment: long softbox strips, not a flat metallic tint.
+// A PMREM filtered HDR-like environment is assigned only to the ship, keeping space dark.
+const envCanvas=document.createElement('canvas');envCanvas.width=1024;envCanvas.height=512;
+const ec=envCanvas.getContext('2d'),w=envCanvas.width,h=envCanvas.height;
+ec.fillStyle='#101820';ec.fillRect(0,0,w,h);
+function softbox(cx,cy,rx,ry,rgb,alpha){
+ ec.save();ec.translate(cx,cy);ec.scale(rx,ry);
+ const gr=ec.createRadialGradient(0,0,.06,0,0,1);
+ gr.addColorStop(0,`rgba(${rgb},${alpha})`);gr.addColorStop(.27,`rgba(${rgb},${alpha*.78})`);
+ gr.addColorStop(1,`rgba(${rgb},0)`);ec.fillStyle=gr;ec.beginPath();ec.arc(0,0,1,0,Math.PI*2);ec.fill();ec.restore();
+}
+softbox(160,170,95,185,'207,224,245',.85);
+softbox(780,230,135,65,'154,202,234',.62);
+softbox(510,110,250,28,'243,247,255',.53);
+softbox(1000,280,55,200,'132,171,212',.42);
+softbox(345,380,160,40,'71,149,200',.35);
+const envTexture=new THREE.CanvasTexture(envCanvas);
+envTexture.mapping=THREE.EquirectangularReflectionMapping;
+envTexture.colorSpace=THREE.SRGBColorSpace;
+const pmrem=new THREE.PMREMGenerator(renderer);
+const shipEnvironment=pmrem.fromEquirectangular(envTexture).texture;
+envTexture.dispose();pmrem.dispose();
+const filmKey=new THREE.DirectionalLight(0xddeaff,2.1);
+filmKey.position.set(-85,135,115);scene.add(filmKey);
+const filmRim=new THREE.DirectionalLight(0x6b9ebf,1.25);
+filmRim.position.set(110,25,-90);scene.add(filmRim);
+const filmFill=new THREE.DirectionalLight(0x3a688c,.45);
+filmFill.position.set(-40,-60,-35);scene.add(filmFill);
+function upgradeShipMaterials(root){
+ root.traverse(node=>{
+  if(!node.isMesh)return;
+  const mats=Array.isArray(node.material)?node.material:[node.material];
+  for(const mat of mats){
+   if(!mat || !mat.isMeshStandardMaterial)continue;
+   mat.envMap=shipEnvironment;
+   mat.envMapIntensity=mat.metalness>.55?2.15:.75;
+   if(mat.metalness>.7){
+     mat.roughness=Math.max(.19,Math.min(.42,mat.roughness));
+   }
+   if(node.name.toLowerCase().includes('glass')||node.name.toLowerCase().includes('cockpit')){
+     mat.envMapIntensity=2.7;
+   }
+   mat.needsUpdate=true;
+  }
+ });
+}
+const sun=new THREE.PointLight(0xffd5ad,190000,2000,1.35);sun.position.set(0,0,0);scene.add(sun);// Animated solar plasma: actual luminous star, not a purple planet.
 const sunMaterial=new THREE.ShaderMaterial({
  uniforms:{uTime:{value:0}},
  vertexShader:`varying vec3 vPos;varying vec3 vNormal;void main(){vPos=position;vNormal=normal;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
@@ -245,7 +292,7 @@ try {
    }
   }});
   for(const part of originalShipParts)part.visible=false;
-  shipGroup.add(model);noirShip=model;model.visible=(activeShipMode!=='nasa'||!nasaShip);
+  upgradeShipMaterials(model);shipGroup.add(model);noirShip=model;model.visible=(activeShipMode!=='nasa'||!nasaShip);
   chooseShip(activeShipMode);
  },err=>{console.warn('Embedded ship parse failed',err);
   const el=document.getElementById('modelStatus');if(el)el.textContent='Fallback ship active';
@@ -304,7 +351,7 @@ new GLTFLoader().load(nasaAssetURL,gltf=>{
      for(const mat of mats){if('metalness' in mat){mat.metalness=Math.max(mat.metalness||0,.42);mat.roughness=Math.max(.22,mat.roughness||.32);}}
    }
  });
- nasaShip=model;shipGroup.add(nasaShip);chooseShip(activeShipMode);
+ upgradeShipMaterials(model);nasaShip=model;shipGroup.add(nasaShip);chooseShip(activeShipMode);
 },undefined,error=>{
  console.warn('NASA external model unavailable, embedded model remains',error);
  chooseShip(activeShipMode);if(activeShipMode==='nasa')showShipStatus('Shuttle fallback active · NASA download unavailable');
@@ -386,7 +433,7 @@ dust.position.copy(camera.position).multiplyScalar(.92)}// Project the planet's 
    if(visible){b.label.style.left=((labelVector.x+1)*50)+'%';b.label.style.top=((1-labelVector.y)*50)+'%'}
  }
  renderer.render(scene,camera)}animate();addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(effectivePixelRatio())});
-</script><div id="textureCredit" style="position:fixed;bottom:3px;left:50%;transform:translateX(-50%);z-index:2;color:#b4bbcf;font:9px system-ui;opacity:.65;pointer-events:none;text-align:center">Planet imagery: Solar System Scope · CC BY 4.0 · based on NASA data</div><div id="photoStatus" style="position:fixed;top:9px;left:50%;transform:translateX(-50%);z-index:15;padding:5px 12px;border:1px solid #7bbad177;border-radius:18px;background:#081525e8;color:#e5f7ff;font:11px system-ui;pointer-events:none">Planet imagery: 0 / 6 loaded</div><div id="modelStatus" style="position:fixed;bottom:9px;right:10px;z-index:12;color:#d4e7f0;background:#05101cc7;border-radius:12px;padding:5px 9px;font:10px system-ui;pointer-events:none">Loading 3D spacecraft…</div><div id="versionIndicator" style="position:fixed;top:7px;right:10px;z-index:50;color:#b4d4dc;background:#04111ccf;border:1px solid #2b5364;border-radius:12px;padding:5px 9px;font:10px system-ui;pointer-events:none">MYLIFE 1.8 · SHIP TOGGLE FIX</div><div id="ambiencePanel" style="position:fixed;bottom:86px;right:12px;z-index:90;background:#020914d9;border:1px solid #35485a;border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:7px;max-width:170px;box-shadow:0 4px 30px #0007;color:#dce6ef;font:11px system-ui">
+</script><div id="textureCredit" style="position:fixed;bottom:3px;left:50%;transform:translateX(-50%);z-index:2;color:#b4bbcf;font:9px system-ui;opacity:.65;pointer-events:none;text-align:center">Planet imagery: Solar System Scope · CC BY 4.0 · based on NASA data</div><div id="photoStatus" style="position:fixed;top:9px;left:50%;transform:translateX(-50%);z-index:15;padding:5px 12px;border:1px solid #7bbad177;border-radius:18px;background:#081525e8;color:#e5f7ff;font:11px system-ui;pointer-events:none">Planet imagery: 0 / 6 loaded</div><div id="modelStatus" style="position:fixed;bottom:9px;right:10px;z-index:12;color:#d4e7f0;background:#05101cc7;border-radius:12px;padding:5px 9px;font:10px system-ui;pointer-events:none">Loading 3D spacecraft…</div><div id="versionIndicator" style="position:fixed;top:7px;right:10px;z-index:50;color:#b4d4dc;background:#04111ccf;border:1px solid #2b5364;border-radius:12px;padding:5px 9px;font:10px system-ui;pointer-events:none">MYLIFE 1.9 · CINEMATIC MATERIALS</div><div id="ambiencePanel" style="position:fixed;bottom:86px;right:12px;z-index:90;background:#020914d9;border:1px solid #35485a;border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:7px;max-width:170px;box-shadow:0 4px 30px #0007;color:#dce6ef;font:11px system-ui">
  <label for="shipChoice" style="opacity:.8">3D spacecraft</label>
  <select id="shipChoice" style="background:#122132;color:#eaf5ff;border:1px solid #496075;border-radius:7px;padding:5px;font:11px system-ui"><option value="nasa">Shuttle (NASA mesh if available)</option><option value="noir">Noir Interceptor</option></select>
  <button id="ambienceToggle" style="background:#1a3041;color:#eaf5ff;border:1px solid #536a7b;border-radius:8px;padding:7px;cursor:pointer">♫ Enable ambience</button>
@@ -394,4 +441,4 @@ dust.position.copy(camera.position).multiplyScalar(.92)}// Project the planet's 
  <input id="ambienceVolume" type="range" min="0" max="100" value="16" style="width:100%;accent-color:#8ea6c4" />
  <label for="spaceBrightness" style="opacity:.8">Space brightness</label>
  <input id="spaceBrightness" type="range" min="55" max="120" value="88" style="width:100%;accent-color:#8ea6c4" />
-</div></body></html>
+</div><div style="position:fixed;top:37px;right:10px;z-index:9999;pointer-events:none;background:#000a;color:#b9d1de;border:1px solid #405568;border-radius:8px;padding:5px 8px;font:10px system-ui">MYLIFE 1.9 · CINEMATIC MATERIALS</div></body></html>
