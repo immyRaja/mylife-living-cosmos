@@ -246,22 +246,44 @@ try {
   }});
   for(const part of originalShipParts)part.visible=false;
   shipGroup.add(model);noirShip=model;model.visible=(activeShipMode!=='nasa'||!nasaShip);
-  const el=document.getElementById('modelStatus');if(el&&!nasaShip)el.textContent='Embedded Noir Interceptor ready';
+  chooseShip(activeShipMode);
  },err=>{console.warn('Embedded ship parse failed',err);
   const el=document.getElementById('modelStatus');if(el)el.textContent='Fallback ship active';
  });
 }catch(err){console.warn('Embedded model error',err);}
 // NASA's actual textured Space Shuttle mesh, rather than another hand-built imitation.
 // The embedded Noir Interceptor remains available if the external asset cannot load.
-let nasaShip=null, activeShipMode='nasa', noirShip=null;
+let nasaShip=null, activeShipMode='noir', noirShip=null, fallbackShuttle=null;
 const nasaAssetURL='https://cdn.jsdelivr.net/gh/nasa/NASA-3D-Resources@master/3D%20Models/Space%20Shuttle%20(D)/Space%20Shuttle%20(D).glb';
 function showShipStatus(message){const e=document.getElementById('modelStatus');if(e)e.textContent=message;}
+// A self-contained, clearly different shuttle silhouette makes both options functional offline.
+function createShuttleFallback(){
+ const g=new THREE.Group();g.name='Shuttle (built-in)';
+ const white=new THREE.MeshStandardMaterial({color:0xd6dce3,metalness:.12,roughness:.56});
+ const dark=new THREE.MeshStandardMaterial({color:0x151d29,metalness:.22,roughness:.4});
+ const windowMat=new THREE.MeshStandardMaterial({color:0x0c2435,metalness:.5,roughness:.2});
+ function mesh(geo,mat,x,y,z){const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);g.add(m);return m;}
+ // Nose faces toward -Z; tail and engine exhaust toward +Z.
+ const body=mesh(new THREE.CylinderGeometry(2.7,3.9,31,18,1),white,0,0,0);body.rotation.x=Math.PI/2;
+ const nose=mesh(new THREE.ConeGeometry(2.7,11,18),white,0,0,-21);nose.rotation.x=-Math.PI/2;
+ const canopy=mesh(new THREE.SphereGeometry(2.55,18,12),windowMat,0,1.8,-11);canopy.scale.set(.88,.54,2.1);
+ function wing(side){const shape=new THREE.Shape();shape.moveTo(side*2.6,-11);shape.lineTo(side*17,10);shape.lineTo(side*18,16);shape.lineTo(side*3.6,14);shape.closePath();const geo=new THREE.ExtrudeGeometry(shape,{depth:.5,bevelEnabled:false});const w=mesh(geo,white,0,-1,0);w.rotation.x=Math.PI/2;return w;}
+ wing(1);wing(-1);
+ const tail=mesh(new THREE.BoxGeometry(.7,11,12),white,0,4,11);tail.rotation.x=.3;
+ for(const x of [-2.1,0,2.1]){const e=mesh(new THREE.CylinderGeometry(.9,.9,3,16),dark,x,-.7,17);e.rotation.x=Math.PI/2;const glow=mesh(new THREE.CircleGeometry(.7,20),new THREE.MeshBasicMaterial({color:0x6ca9df}),x,-.7,18.6);glow.rotation.y=Math.PI;}
+ g.visible=false;shipGroup.add(g);return g;
+}
+fallbackShuttle=createShuttleFallback();
 function chooseShip(mode){
- activeShipMode=mode;
- if(nasaShip){nasaShip.visible=mode==='nasa';}
- if(noirShip){noirShip.visible=mode!=='nasa'||!nasaShip;}
- const select=document.getElementById('shipChoice');if(select)select.value=mode;
- showShipStatus(mode==='nasa'?(nasaShip?'NASA 3D spacecraft active':'Loading NASA model…'):'Noir Interceptor active');
+ activeShipMode=mode==='nasa'?'nasa':'noir';
+ const showShuttle=activeShipMode==='nasa';
+ if(nasaShip)nasaShip.visible=showShuttle;
+ if(fallbackShuttle)fallbackShuttle.visible=showShuttle&&!nasaShip;
+ if(noirShip)noirShip.visible=!showShuttle;
+ // Original primitive model is visible only if the embedded GLB cannot parse.
+ for(const part of originalShipParts)part.visible=!showShuttle&&!noirShip;
+ const select=document.getElementById('shipChoice');if(select)select.value=activeShipMode;
+ showShipStatus(showShuttle?(nasaShip?'NASA 3D spacecraft active':'Shuttle fallback active · NASA model not loaded'):(noirShip?'Noir Interceptor active':'Noir Interceptor loading…'));
 }
 // The embedded GLB is loaded in the same JavaScript task; its parse callback runs shortly afterwards.
 new GLTFLoader().load(nasaAssetURL,gltf=>{
@@ -285,7 +307,7 @@ new GLTFLoader().load(nasaAssetURL,gltf=>{
  nasaShip=model;shipGroup.add(nasaShip);chooseShip(activeShipMode);
 },undefined,error=>{
  console.warn('NASA external model unavailable, embedded model remains',error);
- activeShipMode='noir';chooseShip('noir');showShipStatus('NASA unavailable · embedded Noir ship active');
+ chooseShip(activeShipMode);if(activeShipMode==='nasa')showShipStatus('Shuttle fallback active · NASA download unavailable');
 });
 const shipOffset=new THREE.Vector3(0,-13,-70);
 const keys=new Set();let atlas=false,ship=false,drag=false,lastX=0,lastY=0,yaw=0,pitch=0,speed=1,joyX=0,joyY=0,vertical=0;const direction=new THREE.Vector3(),right=new THREE.Vector3(),up=new THREE.Vector3(0,1,0),clock=new THREE.Clock(),ray=new THREE.Raycaster(),pointer=new THREE.Vector2();const modeBtn=document.getElementById('mode'),shipBtn=document.getElementById('ship'),atlasEl=document.getElementById('atlas');function setMode(value){atlas=value;atlasEl.classList.toggle('show',atlas);document.getElementById('joystick').classList.toggle('hidden',atlas);document.getElementById('lookJoystick').classList.toggle('hidden',atlas);document.querySelectorAll('.joyLabel').forEach(el=>el.classList.toggle('hidden',atlas));document.getElementById('hud').classList.toggle('hidden',atlas);document.getElementById('hint').classList.toggle('hidden',atlas);modeBtn.textContent=atlas?'✧ Cosmos (Tab)':'▦ Atlas (Tab)';document.getElementById('panel').classList.remove('visible')}modeBtn.onclick=()=>setMode(!atlas);shipBtn.onclick=()=>{ship=!ship;shipGroup.visible=ship;shipBtn.textContent=ship?'◆ Ship: On (V)':'◇ Ship: Off (V)';document.querySelector('#hud strong').textContent=ship?'Spaceship Flight':'Free Flight'};document.getElementById('home').onclick=()=>{camera.position.set(0,70,680);yaw=0;pitch=0;camera.rotation.set(0,0,0)};document.getElementById('full').onclick=()=>{if(!document.fullscreenElement)document.documentElement.requestFullscreen?.().catch(()=>{});else document.exitFullscreen?.()};document.getElementById('close').onclick=()=>document.getElementById('panel').classList.remove('visible');
@@ -364,9 +386,9 @@ dust.position.copy(camera.position).multiplyScalar(.92)}// Project the planet's 
    if(visible){b.label.style.left=((labelVector.x+1)*50)+'%';b.label.style.top=((1-labelVector.y)*50)+'%'}
  }
  renderer.render(scene,camera)}animate();addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(effectivePixelRatio())});
-</script><div id="textureCredit" style="position:fixed;bottom:3px;left:50%;transform:translateX(-50%);z-index:2;color:#b4bbcf;font:9px system-ui;opacity:.65;pointer-events:none;text-align:center">Planet imagery: Solar System Scope · CC BY 4.0 · based on NASA data</div><div id="photoStatus" style="position:fixed;top:9px;left:50%;transform:translateX(-50%);z-index:15;padding:5px 12px;border:1px solid #7bbad177;border-radius:18px;background:#081525e8;color:#e5f7ff;font:11px system-ui;pointer-events:none">Planet imagery: 0 / 6 loaded</div><div id="modelStatus" style="position:fixed;bottom:9px;right:10px;z-index:12;color:#d4e7f0;background:#05101cc7;border-radius:12px;padding:5px 9px;font:10px system-ui;pointer-events:none">Loading 3D spacecraft…</div><div id="versionIndicator" style="position:fixed;top:7px;right:10px;z-index:50;color:#b4d4dc;background:#04111ccf;border:1px solid #2b5364;border-radius:12px;padding:5px 9px;font:10px system-ui;pointer-events:none">MYLIFE 1.7 · STELLAR AMBIENCE</div><div id="ambiencePanel" style="position:fixed;bottom:86px;right:12px;z-index:90;background:#020914d9;border:1px solid #35485a;border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:7px;max-width:170px;box-shadow:0 4px 30px #0007;color:#dce6ef;font:11px system-ui">
+</script><div id="textureCredit" style="position:fixed;bottom:3px;left:50%;transform:translateX(-50%);z-index:2;color:#b4bbcf;font:9px system-ui;opacity:.65;pointer-events:none;text-align:center">Planet imagery: Solar System Scope · CC BY 4.0 · based on NASA data</div><div id="photoStatus" style="position:fixed;top:9px;left:50%;transform:translateX(-50%);z-index:15;padding:5px 12px;border:1px solid #7bbad177;border-radius:18px;background:#081525e8;color:#e5f7ff;font:11px system-ui;pointer-events:none">Planet imagery: 0 / 6 loaded</div><div id="modelStatus" style="position:fixed;bottom:9px;right:10px;z-index:12;color:#d4e7f0;background:#05101cc7;border-radius:12px;padding:5px 9px;font:10px system-ui;pointer-events:none">Loading 3D spacecraft…</div><div id="versionIndicator" style="position:fixed;top:7px;right:10px;z-index:50;color:#b4d4dc;background:#04111ccf;border:1px solid #2b5364;border-radius:12px;padding:5px 9px;font:10px system-ui;pointer-events:none">MYLIFE 1.8 · SHIP TOGGLE FIX</div><div id="ambiencePanel" style="position:fixed;bottom:86px;right:12px;z-index:90;background:#020914d9;border:1px solid #35485a;border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:7px;max-width:170px;box-shadow:0 4px 30px #0007;color:#dce6ef;font:11px system-ui">
  <label for="shipChoice" style="opacity:.8">3D spacecraft</label>
- <select id="shipChoice" style="background:#122132;color:#eaf5ff;border:1px solid #496075;border-radius:7px;padding:5px;font:11px system-ui"><option value="nasa">NASA real 3D mesh</option><option value="noir">Noir Interceptor</option></select>
+ <select id="shipChoice" style="background:#122132;color:#eaf5ff;border:1px solid #496075;border-radius:7px;padding:5px;font:11px system-ui"><option value="nasa">Shuttle (NASA mesh if available)</option><option value="noir">Noir Interceptor</option></select>
  <button id="ambienceToggle" style="background:#1a3041;color:#eaf5ff;border:1px solid #536a7b;border-radius:8px;padding:7px;cursor:pointer">♫ Enable ambience</button>
  <label for="ambienceVolume" style="opacity:.8">Ambient volume</label>
  <input id="ambienceVolume" type="range" min="0" max="100" value="16" style="width:100%;accent-color:#8ea6c4" />
