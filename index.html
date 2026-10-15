@@ -229,7 +229,7 @@ shipGroup.traverse(o=>{if(o.userData.exhaust)exhaustHalos.push(o)});
 // Separate GLB asset: actual 3D mesh with PBR metallic materials.
 // Preserve the original procedural ship as fallback if the GLB is unavailable.
 const originalShipParts=[...shipGroup.children];
-new GLTFLoader().load('./assets/noir_interceptor.glb',gltf=>{
+new GLTFLoader().load('./Assets/noir_interceptor.glb',gltf=>{
  const model=gltf.scene;
  model.scale.setScalar(1.0);
  model.traverse(obj=>{
