@@ -14,7 +14,7 @@ let quality='auto';
 const qualityBtn=document.getElementById('quality');
 function effectivePixelRatio(){return Math.min(devicePixelRatio,quality==='high'?2:quality==='low'?1:isMobile?1.35:1.8)}
 qualityBtn.onclick=()=>{quality=quality==='auto'?'low':quality==='low'?'high':'auto';qualityBtn.textContent='✧ Quality: '+quality[0].toUpperCase()+quality.slice(1);renderer.setPixelRatio(effectivePixelRatio())};
-const scene=new THREE.Scene();scene.background=new THREE.Color('#000105');scene.fog=new THREE.FogExp2('#010207',0.00045);const camera=new THREE.PerspectiveCamera(72,innerWidth/innerHeight,.1,20000);camera.position.set(0,70,680);const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});renderer.setPixelRatio(effectivePixelRatio());renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.76;document.getElementById('scene').appendChild(renderer.domElement);scene.add(new THREE.HemisphereLight(0x536783,0x070b13,.72));const sun=new THREE.PointLight(0xffd5ad,190000,2000,1.35);sun.position.set(0,0,0);scene.add(sun);// Animated solar plasma: actual luminous star, not a purple planet.
+const scene=new THREE.Scene();scene.background=new THREE.Color('#000105');scene.fog=new THREE.FogExp2('#010207',0.00045);const camera=new THREE.PerspectiveCamera(72,innerWidth/innerHeight,.1,20000);camera.position.set(0,70,680);const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});renderer.setPixelRatio(effectivePixelRatio());renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.88;document.getElementById('scene').appendChild(renderer.domElement);scene.add(new THREE.HemisphereLight(0x61748a,0x070b13,.82));const sun=new THREE.PointLight(0xffd5ad,190000,2000,1.35);sun.position.set(0,0,0);scene.add(sun);// Animated solar plasma: actual luminous star, not a purple planet.
 const sunMaterial=new THREE.ShaderMaterial({
  uniforms:{uTime:{value:0}},
  vertexShader:`varying vec3 vPos;varying vec3 vNormal;void main(){vPos=position;vNormal=normal;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
@@ -37,7 +37,7 @@ const skyImage=new Image();skyImage.src="data:image/jpeg;base64,/9j/4AAQSkZJRgAB
 const skyTexture=new THREE.Texture(skyImage);skyTexture.colorSpace=THREE.SRGBColorSpace;
 skyImage.onload=()=>{skyTexture.needsUpdate=true};
 const skyDome=new THREE.Mesh(new THREE.SphereGeometry(4900,64,40),
-  new THREE.MeshBasicMaterial({map:skyTexture,color:0x555b69,side:THREE.BackSide,depthWrite:false,fog:false}));
+  new THREE.MeshBasicMaterial({map:skyTexture,color:0x717783,side:THREE.BackSide,depthWrite:false,fog:false}));
 skyDome.renderOrder=-100;scene.add(skyDome);
 const deepNebulae=[];
 for(const [data,radius,opacity,rotation] of [
@@ -245,12 +245,48 @@ try {
    }
   }});
   for(const part of originalShipParts)part.visible=false;
-  shipGroup.add(model);
-  const el=document.getElementById('modelStatus');if(el)el.textContent='✓ Noir Interceptor 3D model loaded';
+  shipGroup.add(model);noirShip=model;model.visible=(activeShipMode!=='nasa'||!nasaShip);
+  const el=document.getElementById('modelStatus');if(el&&!nasaShip)el.textContent='Embedded Noir Interceptor ready';
  },err=>{console.warn('Embedded ship parse failed',err);
   const el=document.getElementById('modelStatus');if(el)el.textContent='Fallback ship active';
  });
 }catch(err){console.warn('Embedded model error',err);}
+// NASA's actual textured Space Shuttle mesh, rather than another hand-built imitation.
+// The embedded Noir Interceptor remains available if the external asset cannot load.
+let nasaShip=null, activeShipMode='nasa', noirShip=null;
+const nasaAssetURL='https://cdn.jsdelivr.net/gh/nasa/NASA-3D-Resources@master/3D%20Models/Space%20Shuttle%20(D)/Space%20Shuttle%20(D).glb';
+function showShipStatus(message){const e=document.getElementById('modelStatus');if(e)e.textContent=message;}
+function chooseShip(mode){
+ activeShipMode=mode;
+ if(nasaShip){nasaShip.visible=mode==='nasa';}
+ if(noirShip){noirShip.visible=mode!=='nasa'||!nasaShip;}
+ const select=document.getElementById('shipChoice');if(select)select.value=mode;
+ showShipStatus(mode==='nasa'?(nasaShip?'NASA 3D spacecraft active':'Loading NASA model…'):'Noir Interceptor active');
+}
+// The embedded GLB is loaded in the same JavaScript task; its parse callback runs shortly afterwards.
+new GLTFLoader().load(nasaAssetURL,gltf=>{
+ const model=gltf.scene;
+ model.updateMatrixWorld(true);
+ let bounds=new THREE.Box3().setFromObject(model), size=new THREE.Vector3();bounds.getSize(size);
+ // Align the longest axis with the forward/back direction of the third-person camera.
+ if(size.y>size.z&&size.y>size.x)model.rotation.x=-Math.PI/2;
+ else if(size.x>size.z&&size.x>size.y)model.rotation.y=-Math.PI/2;
+ model.updateMatrixWorld(true);bounds=new THREE.Box3().setFromObject(model);
+ const dims=new THREE.Vector3();bounds.getSize(dims);
+ const scale=46/Math.max(dims.x,dims.y,dims.z,0.01);model.scale.multiplyScalar(scale);
+ model.updateMatrixWorld(true);bounds=new THREE.Box3().setFromObject(model);
+ const center=new THREE.Vector3();bounds.getCenter(center);model.position.sub(center);
+ model.traverse(obj=>{if(!obj.isMesh)return;
+   obj.castShadow=true;obj.receiveShadow=true;
+   if(obj.material){const mats=Array.isArray(obj.material)?obj.material:[obj.material];
+     for(const mat of mats){if('metalness' in mat){mat.metalness=Math.max(mat.metalness||0,.42);mat.roughness=Math.max(.22,mat.roughness||.32);}}
+   }
+ });
+ nasaShip=model;shipGroup.add(nasaShip);chooseShip(activeShipMode);
+},undefined,error=>{
+ console.warn('NASA external model unavailable, embedded model remains',error);
+ activeShipMode='noir';chooseShip('noir');showShipStatus('NASA unavailable · embedded Noir ship active');
+});
 const shipOffset=new THREE.Vector3(0,-13,-70);
 const keys=new Set();let atlas=false,ship=false,drag=false,lastX=0,lastY=0,yaw=0,pitch=0,speed=1,joyX=0,joyY=0,vertical=0;const direction=new THREE.Vector3(),right=new THREE.Vector3(),up=new THREE.Vector3(0,1,0),clock=new THREE.Clock(),ray=new THREE.Raycaster(),pointer=new THREE.Vector2();const modeBtn=document.getElementById('mode'),shipBtn=document.getElementById('ship'),atlasEl=document.getElementById('atlas');function setMode(value){atlas=value;atlasEl.classList.toggle('show',atlas);document.getElementById('joystick').classList.toggle('hidden',atlas);document.getElementById('lookJoystick').classList.toggle('hidden',atlas);document.querySelectorAll('.joyLabel').forEach(el=>el.classList.toggle('hidden',atlas));document.getElementById('hud').classList.toggle('hidden',atlas);document.getElementById('hint').classList.toggle('hidden',atlas);modeBtn.textContent=atlas?'✧ Cosmos (Tab)':'▦ Atlas (Tab)';document.getElementById('panel').classList.remove('visible')}modeBtn.onclick=()=>setMode(!atlas);shipBtn.onclick=()=>{ship=!ship;shipGroup.visible=ship;shipBtn.textContent=ship?'◆ Ship: On (V)':'◇ Ship: Off (V)';document.querySelector('#hud strong').textContent=ship?'Spaceship Flight':'Free Flight'};document.getElementById('home').onclick=()=>{camera.position.set(0,70,680);yaw=0;pitch=0;camera.rotation.set(0,0,0)};document.getElementById('full').onclick=()=>{if(!document.fullscreenElement)document.documentElement.requestFullscreen?.().catch(()=>{});else document.exitFullscreen?.()};document.getElementById('close').onclick=()=>document.getElementById('panel').classList.remove('visible');
 function openEntry(e){const p=document.getElementById('panel'),c=document.getElementById('panelContent');c.replaceChildren();const h=document.createElement('h2');h.textContent=e.name;const d=document.createElement('p');d.textContent=e.detail;c.append(h,d);if(e.name==='MYLIFE Writer'||e.name==='Fitness Diary'||e.name==='Journal'){const area=document.createElement('textarea');area.style.cssText='width:100%;height:160px;background:#0b1529;color:#eef;border:1px solid #607eab;border-radius:10px;padding:12px;resize:vertical';area.placeholder=e.name==='Fitness Diary'?'Workout date, exercise, sets, repetitions, weights…':'Write here…';const key='mylife-v01-'+e.name;try{area.value=localStorage.getItem(key)||''}catch{}area.addEventListener('input',()=>{try{localStorage.setItem(key,area.value)}catch{}});const note=document.createElement('p');note.textContent='Autosaved locally in this browser. Not yet synced or backed up.';c.append(area,note)}if(e.name==='Media & Connections'){for(const [label,url] of [['YouTube','https://www.youtube.com'],['Google','https://www.google.com'],['ChatGPT','https://chatgpt.com'],['WhatsApp Web','https://web.whatsapp.com']]){const a=document.createElement('a');a.href=url;a.target='_blank';a.rel='noopener noreferrer';a.textContent=label+' ↗';a.style.cssText='display:block;padding:8px;color:#9ceaff';c.append(a)}}p.classList.add('visible')}
@@ -267,6 +303,45 @@ lookJoy.addEventListener('pointerdown',e=>{lookPointer=e.pointerId;e.preventDefa
 lookJoy.addEventListener('pointermove',e=>{if(lookPointer===e.pointerId)lookMove(e)});
 function resetLook(){lookPointer=null;lookX=lookY=0;lookStick.style.transform='translate(0,0)'}
 lookJoy.addEventListener('pointerup',resetLook);lookJoy.addEventListener('pointercancel',resetLook);
+
+
+// Very low, non-invasive synthesized ambient score: no audio file, copyright or network dependency.
+// It never plays until the user taps the button (required by iPhone Safari).
+let ambienceContext=null,ambienceGain=null,ambienceVoices=[],ambiencePlaying=false;
+const audioButton=document.getElementById('ambienceToggle');
+const volumeControl=document.getElementById('ambienceVolume');
+function initAmbience(){
+ const AC=window.AudioContext||window.webkitAudioContext;if(!AC){audioButton.textContent='Audio unavailable';return false;}
+ ambienceContext=new AC();ambienceGain=ambienceContext.createGain();ambienceGain.gain.value=0;
+ const compressor=ambienceContext.createDynamicsCompressor();compressor.threshold.value=-24;compressor.ratio.value=2;
+ ambienceGain.connect(compressor);compressor.connect(ambienceContext.destination);
+ // Low harmonic drone and very quiet fifths: no sharp attacks or percussion.
+ const freqs=[55,82.41,110,164.81,220,329.63];
+ freqs.forEach((freq,i)=>{
+   const oscillator=ambienceContext.createOscillator();oscillator.type=i<3?'sine':'triangle';oscillator.frequency.value=freq;
+   const voice=ambienceContext.createGain();voice.gain.value=i<3?.12:.024;
+   oscillator.connect(voice);voice.connect(ambienceGain);oscillator.start();
+   ambienceVoices.push({oscillator,voice});
+ });
+ // Slow movement in the chord, with no audible rhythmic pulse.
+ const lfo=ambienceContext.createOscillator();lfo.frequency.value=.025;
+ const lfoGain=ambienceContext.createGain();lfoGain.gain.value=.014;
+ lfo.connect(lfoGain);lfoGain.connect(ambienceVoices[3].voice.gain);lfo.start();
+ return true;
+}
+audioButton.addEventListener('click',async()=>{
+ if(!ambienceContext&&!initAmbience())return;
+ await ambienceContext.resume();ambiencePlaying=!ambiencePlaying;
+ ambienceGain.gain.setTargetAtTime(ambiencePlaying?(Number(volumeControl.value)/100)*.24:0,ambienceContext.currentTime,1.2);
+ audioButton.textContent=ambiencePlaying?'♫ Mute ambience':'♫ Enable ambience';
+});
+volumeControl.addEventListener('input',()=>{if(ambienceContext&&ambiencePlaying)ambienceGain.gain.setTargetAtTime(Number(volumeControl.value)/100*.24,ambienceContext.currentTime,.2);});
+document.getElementById('spaceBrightness').addEventListener('input',e=>{
+ const value=Number(e.target.value)/100;renderer.toneMappingExposure=value;
+ // Keep the sky dark even when the user brightens the planets and ship.
+ skyDome.material.color.setRGB(.43*value/.88,.46*value/.88,.51*value/.88);
+});
+document.getElementById('shipChoice').addEventListener('change',e=>chooseShip(e.target.value));
 
 function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDelta(),.05),t=clock.elapsedTime;for(let i=0;i<bodies.length;i++){const b=bodies[i],a=b.angle+t*(.035+i*.004);b.group.position.set(Math.cos(a)*b.orbit,Math.sin(a*.8)*36,Math.sin(a)*b.orbit);b.mesh.rotation.y+=dt*.14;b.cloudSphere.rotation.y+=dt*.09;b.moon.rotation.y+=dt*.25}center.rotation.y+=dt*.06;sunMaterial.uniforms.uTime.value=t;glow.material.rotation+=dt*.02;corona.material.opacity=.34+.045*Math.sin(t*1.8);nebulae.forEach((n,i)=>{n.material.rotation+=dt*(i%2?-.001:.001)});if(!atlas){yaw-=lookX*dt*.52;pitch=Math.max(-1.45,Math.min(1.45,pitch+lookY*dt*.48));camera.rotation.order='YXZ';camera.rotation.y=yaw;camera.rotation.x=pitch;camera.getWorldDirection(direction);right.setFromMatrixColumn(camera.matrixWorld,0);const f=(keys.has('KeyW')?1:0)-(keys.has('KeyS')?1:0)+joyY;const s=(keys.has('KeyD')?1:0)-(keys.has('KeyA')?1:0)+joyX;const v=(keys.has('KeyE')?1:0)-(keys.has('KeyQ')?1:0)+vertical;const mult=(keys.has('ShiftLeft')||keys.has('ShiftRight')?3:1)*speed*dt*115;camera.position.addScaledVector(direction,f*mult).addScaledVector(right,s*mult).addScaledVector(up,v*mult);// Camera-relative chase framing; no right-hand clipping, no feedback into movement.
 camera.updateMatrixWorld();
@@ -289,4 +364,12 @@ dust.position.copy(camera.position).multiplyScalar(.92)}// Project the planet's 
    if(visible){b.label.style.left=((labelVector.x+1)*50)+'%';b.label.style.top=((1-labelVector.y)*50)+'%'}
  }
  renderer.render(scene,camera)}animate();addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(effectivePixelRatio())});
-</script><div id="textureCredit" style="position:fixed;bottom:3px;left:50%;transform:translateX(-50%);z-index:2;color:#b4bbcf;font:9px system-ui;opacity:.65;pointer-events:none;text-align:center">Planet imagery: Solar System Scope · CC BY 4.0 · based on NASA data</div><div id="photoStatus" style="position:fixed;top:9px;left:50%;transform:translateX(-50%);z-index:15;padding:5px 12px;border:1px solid #7bbad177;border-radius:18px;background:#081525e8;color:#e5f7ff;font:11px system-ui;pointer-events:none">Planet imagery: 0 / 6 loaded</div><div id="modelStatus" style="position:fixed;bottom:9px;right:10px;z-index:12;color:#d4e7f0;background:#05101cc7;border-radius:12px;padding:5px 9px;font:10px system-ui;pointer-events:none">Loading 3D spacecraft…</div><div id="versionIndicator" style="position:fixed;top:7px;right:10px;z-index:50;color:#b4d4dc;background:#04111ccf;border:1px solid #2b5364;border-radius:12px;padding:5px 9px;font:10px system-ui;pointer-events:none">MYLIFE 1.6 · NOIR INTERCEPTOR</div><div style="position:fixed;top:9px;right:10px;z-index:9999;pointer-events:none;background:#000a;color:#a7b7ca;border:1px solid #344456;border-radius:8px;padding:5px 8px;font:10px system-ui">MYLIFE 1.6 · NOIR INTERCEPTOR</div></body></html>
+</script><div id="textureCredit" style="position:fixed;bottom:3px;left:50%;transform:translateX(-50%);z-index:2;color:#b4bbcf;font:9px system-ui;opacity:.65;pointer-events:none;text-align:center">Planet imagery: Solar System Scope · CC BY 4.0 · based on NASA data</div><div id="photoStatus" style="position:fixed;top:9px;left:50%;transform:translateX(-50%);z-index:15;padding:5px 12px;border:1px solid #7bbad177;border-radius:18px;background:#081525e8;color:#e5f7ff;font:11px system-ui;pointer-events:none">Planet imagery: 0 / 6 loaded</div><div id="modelStatus" style="position:fixed;bottom:9px;right:10px;z-index:12;color:#d4e7f0;background:#05101cc7;border-radius:12px;padding:5px 9px;font:10px system-ui;pointer-events:none">Loading 3D spacecraft…</div><div id="versionIndicator" style="position:fixed;top:7px;right:10px;z-index:50;color:#b4d4dc;background:#04111ccf;border:1px solid #2b5364;border-radius:12px;padding:5px 9px;font:10px system-ui;pointer-events:none">MYLIFE 1.7 · STELLAR AMBIENCE</div><div id="ambiencePanel" style="position:fixed;bottom:86px;right:12px;z-index:90;background:#020914d9;border:1px solid #35485a;border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:7px;max-width:170px;box-shadow:0 4px 30px #0007;color:#dce6ef;font:11px system-ui">
+ <label for="shipChoice" style="opacity:.8">3D spacecraft</label>
+ <select id="shipChoice" style="background:#122132;color:#eaf5ff;border:1px solid #496075;border-radius:7px;padding:5px;font:11px system-ui"><option value="nasa">NASA real 3D mesh</option><option value="noir">Noir Interceptor</option></select>
+ <button id="ambienceToggle" style="background:#1a3041;color:#eaf5ff;border:1px solid #536a7b;border-radius:8px;padding:7px;cursor:pointer">♫ Enable ambience</button>
+ <label for="ambienceVolume" style="opacity:.8">Ambient volume</label>
+ <input id="ambienceVolume" type="range" min="0" max="100" value="16" style="width:100%;accent-color:#8ea6c4" />
+ <label for="spaceBrightness" style="opacity:.8">Space brightness</label>
+ <input id="spaceBrightness" type="range" min="55" max="120" value="88" style="width:100%;accent-color:#8ea6c4" />
+</div></body></html>
