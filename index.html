@@ -3,7 +3,7 @@
 #planetLabels{position:fixed;inset:0;pointer-events:none;z-index:3;overflow:hidden}
 .planetName{position:absolute;transform:translate(-50%,-100%);white-space:nowrap;border:1px solid rgba(165,217,255,.45);border-radius:999px;padding:6px 12px;background:rgba(5,12,28,.74);color:#f0f6ff;font:600 12px/1.2 system-ui,-apple-system,sans-serif;letter-spacing:.025em;text-shadow:0 1px 6px #000;box-shadow:0 2px 12px #0008;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 @media(max-width:650px){.planetName{font-size:10px;padding:5px 8px;max-width:120px;overflow:hidden;text-overflow:ellipsis}}
-</style></head><body><div id="scene"></div><div id="planetLabels" aria-label="Planet names"></div><div id="ui"><header class="top"><div class="brand glass"><b>MYLIFE</b><small>THE LIVING COSMOS · 1.1</small></div><div class="actions"><button id="mode">▦ Atlas (Tab)</button><button id="ship">◇ Ship: Off (V)</button><button id="home">⌂ Home (H)</button><button id="quality">✧ Quality: Auto</button><button id="full">⛶ Fullscreen</button></div></header><div class="hud glass" id="hud"><strong>Free Flight</strong><div>W / S · forward / back</div><div>A / D · strafe left / right</div><div>Q / E · descend / ascend</div><div>Drag · look around</div><div>Shift · boost · Scroll · adjust speed</div><div>Tap a planet to explore · Drag space to look</div><div id="status">Flight speed: 1.0×</div></div><span class="joyLabel left">MOVE</span><div id="joystick" class="joystick" aria-label="Move joystick"><div id="stick" class="stick"></div></div><span class="joyLabel right">LOOK / PAN</span><div id="lookJoystick" class="joystick lookJoystick" aria-label="Look and pan joystick"><div id="lookStick" class="stick"></div></div><div class="hint glass" id="hint">Fly through space · Atlas is one tap away</div><div id="message" class="glass"></div><section id="panel" class="panel glass"><button class="close" id="close">✕</button><div id="panelContent"></div></section><main id="atlas" class="atlas"><h1>Atlas <span style="color:#9fe9ee">Mode</span></h1><p>Your universe, instantly accessible. Search and select any destination.</p><input id="search" placeholder="Search your universe…" aria-label="Search tiles"><div class="tiles" id="tiles"></div></main></div><script type="module">
+</style></head><body><div id="scene"></div><div id="planetLabels" aria-label="Planet names"></div><div id="ui"><header class="top"><div class="brand glass"><b>MYLIFE</b><small>THE LIVING COSMOS · 1.2</small></div><div class="actions"><button id="mode">▦ Atlas (Tab)</button><button id="ship">◇ Ship: Off (V)</button><button id="home">⌂ Home (H)</button><button id="quality">✧ Quality: Auto</button><button id="full">⛶ Fullscreen</button></div></header><div class="hud glass" id="hud"><strong>Free Flight</strong><div>W / S · forward / back</div><div>A / D · strafe left / right</div><div>Q / E · descend / ascend</div><div>Drag · look around</div><div>Shift · boost · Scroll · adjust speed</div><div>Tap a planet to explore · Drag space to look</div><div id="status">Flight speed: 1.0×</div></div><span class="joyLabel left">MOVE</span><div id="joystick" class="joystick" aria-label="Move joystick"><div id="stick" class="stick"></div></div><span class="joyLabel right">LOOK / PAN</span><div id="lookJoystick" class="joystick lookJoystick" aria-label="Look and pan joystick"><div id="lookStick" class="stick"></div></div><div class="hint glass" id="hint">Fly through space · Atlas is one tap away</div><div id="message" class="glass"></div><section id="panel" class="panel glass"><button class="close" id="close">✕</button><div id="panelContent"></div></section><main id="atlas" class="atlas"><h1>Atlas <span style="color:#9fe9ee">Mode</span></h1><p>Your universe, instantly accessible. Search and select any destination.</p><input id="search" placeholder="Search your universe…" aria-label="Search tiles"><div class="tiles" id="tiles"></div></main></div><script type="module">
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js';
 const entries=[{name:'MYLIFE Writer',icon:'✎',desc:'Documents, notes and writing',color:'#a78bfa',detail:'A local prototype writing space. In a later release, Word files can be opened from folders you authorise.'},{name:'Fitness Diary',icon:'◉',desc:'Training, cycling and progress',color:'#56cde8',detail:'Record your training sessions in the first prototype. Entries are saved in this browser on this device.'},{name:'Creative Library',icon:'✦',desc:'Artwork, photography and projects',color:'#ee9ac7',detail:'Your future gallery of paintings, photographs and creative work.'},{name:'Journal',icon:'☾',desc:'Mood and daily reflections',color:'#e7bb8b',detail:'Record how you are feeling and keep private daily reflections.'},{name:'News Observatory',icon:'◈',desc:'Personalised news',color:'#78d5b3',detail:'A future home for your selected news sources and topics.'},{name:'Media & Connections',icon:'▶',desc:'YouTube, Google and communications',color:'#f17d8f',detail:'Quick links to services you use, with optional integrations later.'}];
 // Mobile-aware rendering quality: avoid driving the 5K panel at full native resolution on phones.
@@ -63,37 +63,31 @@ const planetTextures=planetImageData.map(url=>{
 // Actual imagery-based planetary maps from Solar System Scope, CC BY 4.0.
 // Pre-rendered 2K procedural maps remain as a fallback when the external
 // imagery host cannot be reached or blocks browser access.
-// Wikimedia Commons hosts CC BY 4.0 Solar System Scope texture files.
-// A second CDN is tried if the primary image cannot load.
-const photoUrls=["https://upload.wikimedia.org/wikipedia/commons/b/be/Solarsystemscope_texture_2k_jupiter.jpg", "https://upload.wikimedia.org/wikipedia/commons/c/c3/Solarsystemscope_texture_2k_earth_daymap.jpg", "https://upload.wikimedia.org/wikipedia/commons/4/46/Solarsystemscope_texture_2k_mars.jpg", "https://upload.wikimedia.org/wikipedia/commons/e/ea/Solarsystemscope_texture_2k_saturn.jpg", "https://upload.wikimedia.org/wikipedia/commons/1/1e/Solarsystemscope_texture_2k_neptune.jpg", "https://upload.wikimedia.org/wikipedia/commons/6/63/Solarsystemscope_texture_2k_venus_atmosphere.jpg"];
-const fallbackUrls=["https://cdn.jsdelivr.net/gh/Sanghel/solar-system-3d@develop/public/textures/jupiter.jpg", "https://cdn.jsdelivr.net/gh/Sanghel/solar-system-3d@develop/public/textures/earth.jpg", "https://cdn.jsdelivr.net/gh/Sanghel/solar-system-3d@develop/public/textures/mars.jpg", "https://cdn.jsdelivr.net/gh/Sanghel/solar-system-3d@develop/public/textures/saturn.jpg", "https://cdn.jsdelivr.net/gh/Sanghel/solar-system-3d@develop/public/textures/neptune.jpg", "https://cdn.jsdelivr.net/gh/Sanghel/solar-system-3d@develop/public/textures/venus.jpg"];
+// Actual 2K planet maps, with filenames confirmed by the source repository's
+// attribution manifest. Local built-in maps remain available as fallback.
+const planetNames=['jupiter','earth','mars','saturn','neptune','venus'];
 const photoTextures=[];
 let photoReadyCount=0;
-function updatePhotoStatus(){
- const el=document.getElementById('photoStatus');
- if(el)el.textContent=photoReadyCount===6?'✓ 6 real planetary maps loaded':'Real planetary maps: '+photoReadyCount+' / 6 loaded';
-}
-for(let index=0;index<6;index++){
- const texture=new THREE.Texture();
- texture.colorSpace=THREE.SRGBColorSpace;
- texture.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
- const state={texture,ready:false};
- photoTextures.push(state);
- let sourceIndex=0;
- const load=()=>{
-  const img=new Image();img.crossOrigin='anonymous';
-  img.onload=()=>{
-   texture.image=img;texture.needsUpdate=true;
-   if(!state.ready){state.ready=true;photoReadyCount++}
-   for(const body of bodies)if(body.imageIndex===index){
-    body.mesh.material.map=texture;body.mesh.material.needsUpdate=true;
-   }
-   updatePhotoStatus();
-  };
-  img.onerror=()=>{if(sourceIndex++===0)load();else{console.warn('Planet map unavailable',index);updatePhotoStatus()}};
-  img.src=sourceIndex===0?photoUrls[index]:fallbackUrls[index];
+function updatePhotoStatus(){const el=document.getElementById('photoStatus');if(el)el.textContent=photoReadyCount===6?'✓ 6 / 6 photographic planet maps loaded':`Planet imagery: ${photoReadyCount} / 6 loaded`;}
+for(let i=0;i<6;i++){
+ const state={texture:null,ready:false};photoTextures.push(state);
+ const sources=[
+   `https://cdn.jsdelivr.net/gh/Sanghel/solar-system-3d@develop/public/textures/${planetNames[i]}.jpg`,
+   `https://raw.githubusercontent.com/Sanghel/solar-system-3d/develop/public/textures/${planetNames[i]}.jpg`
+ ];
+ const load=(sourceIndex)=>{
+   if(sourceIndex>=sources.length){console.warn('No external map for',planetNames[i]);return;}
+   const image=new Image();image.crossOrigin='anonymous';
+   image.onload=()=>{
+     const tex=new THREE.Texture(image);tex.colorSpace=THREE.SRGBColorSpace;
+     tex.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());tex.needsUpdate=true;
+     state.texture=tex;state.ready=true;photoReadyCount++;updatePhotoStatus();
+     for(const body of bodies)if(body.imageIndex===i){body.mesh.material.map=tex;body.mesh.material.needsUpdate=true;}
+   };
+   image.onerror=()=>load(sourceIndex+1);
+   image.src=sources[sourceIndex];
  };
- load();
+ load(0);
 }
 function planetTexture(index){return planetTextures[index%planetTextures.length]}
 
@@ -204,6 +198,30 @@ for(const side of [-1,1]){
 }
 const keel=shipPart(new THREE.BoxGeometry(1.2,2.4,26),seam,0,-2,0);
 const dorsal=shipPart(new THREE.BoxGeometry(1.2,2.1,12),brushed,0,3.2,5);
+// Version 1.2: additional modeled spacecraft details (no external 3D download).
+const gunmetal=new THREE.MeshPhysicalMaterial({color:0x202f40,metalness:.95,roughness:.23,clearcoat:.85});
+const titanium=new THREE.MeshPhysicalMaterial({color:0xabb9c5,metalness:.93,roughness:.24,clearcoat:1});
+const hotEngine=new THREE.MeshBasicMaterial({color:0x9ceeff,toneMapped:false});
+for(const side of [-1,1]){
+  const forwardCanard=shipPart(new THREE.BoxGeometry(9,.45,4.5),titanium,side*7,-.2,-14);
+  forwardCanard.rotation.y=side*.3;forwardCanard.rotation.z=side*.1;
+  const intake=shipPart(new THREE.CylinderGeometry(2.1,2.1,5,32),gunmetal,side*8,.7,5);
+  intake.rotation.x=Math.PI/2;
+  const intakeCore=shipPart(new THREE.CylinderGeometry(1.4,1.4,5.2,24),seam,side*8,.7,5);
+  intakeCore.rotation.x=Math.PI/2;
+  const thruster=shipPart(new THREE.CylinderGeometry(1.65,1.65,.3,32),hotEngine,side*8,-.6,17.4);
+  thruster.rotation.x=Math.PI/2;
+  const stripe=shipPart(new THREE.BoxGeometry(.26,.08,19),blueGlow,side*4.6,1.15,1);
+  stripe.rotation.y=side*.04;
+  for(let k=0;k<6;k++){
+    const bolt=shipPart(new THREE.SphereGeometry(.17,8,6),titanium,side*(4.1+k*2.5),-.05,2+k*.4);
+  }
+  const tail=shipPart(new THREE.BoxGeometry(1.1,7,9),titanium,side*15,3,10);
+  tail.rotation.z=side*.24;tail.rotation.y=side*.1;
+}
+const canopyRidge=shipPart(new THREE.BoxGeometry(.3,.24,14),titanium,0,3.95,-7);
+const underbelly=shipPart(new THREE.CylinderGeometry(1.6,2.1,18,8),gunmetal,0,-2.5,2);
+underbelly.rotation.x=Math.PI/2;
 const exhaustHalos=[];
 shipGroup.traverse(o=>{if(o.userData.exhaust)exhaustHalos.push(o)});
 const shipOffset=new THREE.Vector3(0,-13,-70);
@@ -244,4 +262,4 @@ dust.position.copy(camera.position).multiplyScalar(.92)}// Project the planet's 
    if(visible){b.label.style.left=((labelVector.x+1)*50)+'%';b.label.style.top=((1-labelVector.y)*50)+'%'}
  }
  renderer.render(scene,camera)}animate();addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(effectivePixelRatio())});
-</script><div id="textureCredit" style="position:fixed;bottom:3px;left:50%;transform:translateX(-50%);z-index:2;color:#b4bbcf;font:9px system-ui;opacity:.65;pointer-events:none;text-align:center">Planet imagery: Solar System Scope · CC BY 4.0 · based on NASA data</div><div id="photoStatus" style="position:fixed;top:9px;left:50%;transform:translateX(-50%);z-index:15;padding:5px 12px;border:1px solid #7bbad177;border-radius:18px;background:#081525e8;color:#e5f7ff;font:11px system-ui;pointer-events:none">Real planetary maps: 0 / 6 loaded</div></body></html>
+</script><div id="textureCredit" style="position:fixed;bottom:3px;left:50%;transform:translateX(-50%);z-index:2;color:#b4bbcf;font:9px system-ui;opacity:.65;pointer-events:none;text-align:center">Planet imagery: Solar System Scope · CC BY 4.0 · based on NASA data</div><div id="photoStatus" style="position:fixed;top:9px;left:50%;transform:translateX(-50%);z-index:15;padding:5px 12px;border:1px solid #7bbad177;border-radius:18px;background:#081525e8;color:#e5f7ff;font:11px system-ui;pointer-events:none">Planet imagery: 0 / 6 loaded</div></body></html>
