@@ -3,7 +3,13 @@
 #planetLabels{position:fixed;inset:0;pointer-events:none;z-index:3;overflow:hidden}
 .planetName{position:absolute;transform:translate(-50%,-100%);white-space:nowrap;border:1px solid rgba(165,217,255,.45);border-radius:999px;padding:6px 12px;background:rgba(5,12,28,.74);color:#f0f6ff;font:600 12px/1.2 system-ui,-apple-system,sans-serif;letter-spacing:.025em;text-shadow:0 1px 6px #000;box-shadow:0 2px 12px #0008;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 @media(max-width:650px){.planetName{font-size:10px;padding:5px 8px;max-width:120px;overflow:hidden;text-overflow:ellipsis}}
-</style></head><body><div id="scene"></div><div id="planetLabels" aria-label="Planet names"></div><div id="ui"><header class="top"><div class="brand glass"><b>MYLIFE</b><small>THE LIVING COSMOS · 2.0</small></div><div class="actions"><button id="mode">▦ Atlas (Tab)</button><button id="ship">◇ Ship: Off (V)</button><button id="home">⌂ Home (H)</button><button id="quality">✧ Quality: Auto</button><button id="full">⛶ Fullscreen</button></div></header><div class="hud glass" id="hud"><strong>Free Flight</strong><div>W / S · forward / back</div><div>A / D · strafe left / right</div><div>Q / E · descend / ascend</div><div>Drag · look around</div><div>Shift · boost · Scroll · adjust speed</div><div>Tap a planet to explore · Drag space to look</div><div id="status">Flight speed: 1.0×</div></div><span class="joyLabel left">MOVE</span><div id="joystick" class="joystick" aria-label="Move joystick"><div id="stick" class="stick"></div></div><span class="joyLabel right">LOOK / PAN</span><div id="lookJoystick" class="joystick lookJoystick" aria-label="Look and pan joystick"><div id="lookStick" class="stick"></div></div><div class="hint glass" id="hint">Fly through space · Atlas is one tap away</div><div id="message" class="glass"></div><section id="panel" class="panel glass"><button class="close" id="close">✕</button><div id="panelContent"></div></section><main id="atlas" class="atlas"><h1>Atlas <span style="color:#9fe9ee">Mode</span></h1><p>Your universe, instantly accessible. Search and select any destination.</p><input id="search" placeholder="Search your universe…" aria-label="Search tiles"><div class="tiles" id="tiles"></div></main></div><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
+@media(max-width:650px){
+  .brand small{font-size:9px}
+  .actions{max-width:61vw;gap:3px;justify-content:flex-end}
+  .actions button{font-size:10px;padding:6px 7px}
+  #roadsterImportStatus{overflow-wrap:anywhere}
+}
+</style></head><body><div id="scene"></div><div id="planetLabels" aria-label="Planet names"></div><div id="ui"><header class="top"><div class="brand glass"><b>MYLIFE</b><small>THE LIVING COSMOS · 2.2</small></div><div class="actions"><button id="mode">▦ Atlas (Tab)</button><button id="ship">◇ Ship: Off (V)</button><button id="home">⌂ Home (H)</button><button id="quality">✧ Quality: Auto</button><button id="full">⛶ Fullscreen</button></div></header><div class="hud glass" id="hud"><strong>Free Flight</strong><div>W / S · forward / back</div><div>A / D · strafe left / right</div><div>Q / E · descend / ascend</div><div>Drag · look around</div><div>Shift · boost · Scroll · adjust speed</div><div>Tap a planet to explore · Drag space to look</div><div id="status">Flight speed: 1.0×</div></div><span class="joyLabel left">MOVE</span><div id="joystick" class="joystick" aria-label="Move joystick"><div id="stick" class="stick"></div></div><span class="joyLabel right">LOOK / PAN</span><div id="lookJoystick" class="joystick lookJoystick" aria-label="Look and pan joystick"><div id="lookStick" class="stick"></div></div><div class="hint glass" id="hint">Fly through space · Atlas is one tap away</div><div id="message" class="glass"></div><section id="panel" class="panel glass"><button class="close" id="close">✕</button><div id="panelContent"></div></section><main id="atlas" class="atlas"><h1>Atlas <span style="color:#9fe9ee">Mode</span></h1><p>Your universe, instantly accessible. Search and select any destination.</p><input id="search" placeholder="Search your universe…" aria-label="Search tiles"><div class="tiles" id="tiles"></div></main></div><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
 <script type="module">
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -432,6 +438,7 @@ function normalizeRoadster(obj){
  obj.scale.multiplyScalar(36/max);obj.updateMatrixWorld(true);
  bounds.setFromObject(obj);const center=new THREE.Vector3();bounds.getCenter(center);
  obj.position.sub(center);
+ obj.rotation.y=Math.PI; // rear of the Corvette faces the chase camera
  obj.traverse(m=>{if(m.isMesh){m.castShadow=true;m.receiveShadow=true;}});
  upgradeShipMaterials(obj);
  return obj;
@@ -446,11 +453,21 @@ carFileInput.addEventListener('change',async e=>{
   importStatus.textContent='Loaded '+e.target.files[0].name+' · Use roadster selection to fly';
  }catch(err){importStatus.textContent='Car import failed: '+err.message;console.error(err);}
 });
+function applyAstronautTextures(obj){
+ const tl=new THREE.TextureLoader();
+ const color=tl.load('./assets/AStro_outfit_BaseColor.jpeg');color.colorSpace=THREE.SRGBColorSpace;
+ const rough=tl.load('./assets/AStro_outfit_Roughness.jpeg');
+ const metal=tl.load('./assets/AStro_outfit_Metallic.jpeg');
+ const normal=tl.load('./assets/AStro_outfit_Normal.jpeg');
+ obj.traverse(m=>{if(m.isMesh){m.material=new THREE.MeshStandardMaterial({map:color,roughnessMap:rough,metalnessMap:metal,normalMap:normal,metalness:.48,roughness:.72,side:THREE.DoubleSide});}});
+}
 astronautFileInput.addEventListener('change',async e=>{
  try{
   if(!roadsterShip)throw Error('Load the car first.');
   importStatus.textContent='Loading astronaut…';
-  const obj=await importGlb(e.target.files[0]);
+  const file=e.target.files[0];
+  if(!file)throw Error('Choose an astronaut model.');
+  const obj=/\.fbx$/i.test(file.name) ? new FBXLoader().parse(await file.arrayBuffer(),'') : await importGlb(file);
   obj.updateMatrixWorld(true);const b=new THREE.Box3().setFromObject(obj),d=new THREE.Vector3();b.getSize(d);
   obj.scale.multiplyScalar(9/Math.max(d.x,d.y,d.z,.001));
   obj.updateMatrixWorld(true);b.setFromObject(obj);const c=new THREE.Vector3();b.getCenter(c);obj.position.sub(c);
@@ -458,6 +475,7 @@ astronautFileInput.addEventListener('change',async e=>{
   obj.position.add(new THREE.Vector3(-5,3,-1));
   if(roadsterAstronaut)roadsterShip.remove(roadsterAstronaut);
   roadsterAstronaut=obj;roadsterShip.add(obj);
+  if(/\.fbx$/i.test(file.name))applyAstronautTextures(obj);
   upgradeShipMaterials(obj);
   importStatus.textContent='Astronaut loaded. Position is approximate; a rigged seated pose is needed for steering animation.';
  }catch(err){importStatus.textContent='Astronaut import failed: '+err.message;console.error(err);}
@@ -476,7 +494,7 @@ bundledLoader.load('./assets/Chevrolet%20Corvette%20C1.glb',gltf=>{
    loadBundledAstronaut();
  }catch(err){importStatus.textContent='Corvette setup error: '+err.message;console.error(err);}
 },undefined,err=>{
- importStatus.textContent='Corvette could not load. Check the assets folder is uploaded.';
+ importStatus.textContent='Car not found: upload the complete assets folder to GitHub main (beside index.html), or use Choose File below.';
  console.error(err);
 });
 function loadBundledAstronaut(){
@@ -538,12 +556,12 @@ dust.position.copy(camera.position).multiplyScalar(.92)}// Project the planet's 
    if(visible){b.label.style.left=((labelVector.x+1)*50)+'%';b.label.style.top=((1-labelVector.y)*50)+'%'}
  }
  renderer.render(scene,camera)}animate();addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(effectivePixelRatio())});
-</script><div id="textureCredit" style="position:fixed;bottom:3px;left:50%;transform:translateX(-50%);z-index:2;color:#b4bbcf;font:9px system-ui;opacity:.65;pointer-events:none;text-align:center">Planet imagery: Solar System Scope · CC BY 4.0 · based on NASA data</div><div id="photoStatus" style="position:fixed;top:9px;left:50%;transform:translateX(-50%);z-index:15;padding:5px 12px;border:1px solid #7bbad177;border-radius:18px;background:#081525e8;color:#e5f7ff;font:11px system-ui;pointer-events:none">Planet imagery: 0 / 6 loaded</div><div id="modelStatus" style="position:fixed;bottom:9px;right:10px;z-index:12;color:#d4e7f0;background:#05101cc7;border-radius:12px;padding:5px 9px;font:10px system-ui;pointer-events:none">Loading 3D spacecraft…</div><div id="versionIndicator" style="position:fixed;top:7px;right:10px;z-index:50;color:#b4d4dc;background:#04111ccf;border:1px solid #2b5364;border-radius:12px;padding:5px 9px;font:10px system-ui;pointer-events:none">MYLIFE 2.1 · CORVETTE + ASTRONAUT</div><div id="ambiencePanel" style="position:fixed;bottom:86px;right:12px;z-index:90;background:#020914d9;border:1px solid #35485a;border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:7px;max-width:170px;box-shadow:0 4px 30px #0007;color:#dce6ef;font:11px system-ui">
+</script><div id="textureCredit" style="position:fixed;bottom:3px;left:50%;transform:translateX(-50%);z-index:2;color:#b4bbcf;font:9px system-ui;opacity:.65;pointer-events:none;text-align:center">Planet imagery: Solar System Scope · CC BY 4.0 · based on NASA data</div><div id="photoStatus" style="position:fixed;top:9px;left:50%;transform:translateX(-50%);z-index:15;padding:5px 12px;border:1px solid #7bbad177;border-radius:18px;background:#081525e8;color:#e5f7ff;font:11px system-ui;pointer-events:none">Planet imagery: 0 / 6 loaded</div><div id="modelStatus" style="position:fixed;bottom:9px;right:10px;z-index:12;color:#d4e7f0;background:#05101cc7;border-radius:12px;padding:5px 9px;font:10px system-ui;pointer-events:none">Loading 3D spacecraft…</div><div id="versionIndicator" style="position:fixed;top:7px;right:10px;z-index:50;color:#b4d4dc;background:#04111ccf;border:1px solid #2b5364;border-radius:12px;padding:5px 9px;font:10px system-ui;pointer-events:none">MYLIFE 2.2 · ROADSTER FIX</div><div id="ambiencePanel" style="position:fixed;bottom:86px;right:12px;z-index:90;background:#020914d9;border:1px solid #35485a;border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:7px;max-width:170px;box-shadow:0 4px 30px #0007;color:#dce6ef;font:11px system-ui">
  <label for="shipChoice" style="opacity:.8">3D spacecraft</label>
- <select id="shipChoice" style="background:#122132;color:#eaf5ff;border:1px solid #496075;border-radius:7px;padding:5px;font:11px system-ui"><option value="nasa">Shuttle (NASA mesh if available)</option><option value="noir">Noir Interceptor</option><option value="roadster">White Space Roadster (upload model)</option></select><div style="display:flex;flex-direction:column;gap:5px;margin-top:8px"><label style="font:11px system-ui">Import photorealistic convertible (.glb)</label><input type="file" id="roadsterFile" accept=".glb,model/gltf-binary" style="max-width:220px;font:10px system-ui"/><label style="font:11px system-ui">Import astronaut (.glb, optional)</label><input type="file" id="astronautFile" accept=".glb,model/gltf-binary" style="max-width:220px;font:10px system-ui"/><small id="roadsterImportStatus" style="color:#b6cbd9;max-width:230px">No convertible model imported yet.</small></div>
+ <select id="shipChoice" style="background:#122132;color:#eaf5ff;border:1px solid #496075;border-radius:7px;padding:5px;font:11px system-ui"><option value="nasa">Shuttle (NASA mesh if available)</option><option value="noir">Noir Interceptor</option><option value="roadster">White Corvette Roadster</option></select><div style="display:flex;flex-direction:column;gap:5px;margin-top:8px"><label style="font:11px system-ui">Import photorealistic convertible (.glb)</label><input type="file" id="roadsterFile" accept=".glb,model/gltf-binary" style="max-width:220px;font:10px system-ui"/><label style="font:11px system-ui">Import astronaut (.fbx or .glb)</label><input type="file" id="astronautFile" accept=".fbx,.glb,model/gltf-binary,application/octet-stream" style="max-width:220px;font:10px system-ui"/><small id="roadsterImportStatus" style="color:#b6cbd9;max-width:230px">No convertible model imported yet.</small></div>
  <button id="ambienceToggle" style="background:#1a3041;color:#eaf5ff;border:1px solid #536a7b;border-radius:8px;padding:7px;cursor:pointer">♫ Enable ambience</button>
  <label for="ambienceVolume" style="opacity:.8">Ambient volume</label>
  <input id="ambienceVolume" type="range" min="0" max="100" value="16" style="width:100%;accent-color:#8ea6c4" />
  <label for="spaceBrightness" style="opacity:.8">Space brightness</label>
  <input id="spaceBrightness" type="range" min="55" max="120" value="88" style="width:100%;accent-color:#8ea6c4" />
-</div><div style="position:fixed;top:37px;right:10px;z-index:9999;pointer-events:none;background:#000a;color:#b9d1de;border:1px solid #405568;border-radius:8px;padding:5px 8px;font:10px system-ui">MYLIFE 2.1 · CORVETTE + ASTRONAUT</div></body></html>
+</div><div style="position:fixed;top:37px;right:10px;z-index:9999;pointer-events:none;background:#000a;color:#b9d1de;border:1px solid #405568;border-radius:8px;padding:5px 8px;font:10px system-ui">MYLIFE 2.2 · ROADSTER FIX</div></body></html>
